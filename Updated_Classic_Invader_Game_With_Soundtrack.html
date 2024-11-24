@@ -1,0 +1,241 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classic Invader Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: black;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #111;
+        }
+        #scoreboard {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 20px;
+            text-align: center;
+        }
+        #restartButton {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 10px 20px;
+            font-size: 20px;
+            color: white;
+            background-color: #444;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #restartButton:hover {
+            background-color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div id="scoreboard">Score: 0</div>
+    <button id="restartButton">Restart Game</button>
+    <canvas id="gameCanvas"></canvas>
+    <audio id="backgroundMusic" loop>
+        <source src="Retro_warriors.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreboard = document.getElementById('scoreboard');
+        const restartButton = document.getElementById('restartButton');
+        const backgroundMusic = document.getElementById('backgroundMusic');
+
+        // Play background music when the game starts
+        backgroundMusic.volume = 0.5; // Set the volume level (0.0 to 1.0)
+        backgroundMusic.play();
+
+        // Canvas dimensions
+        canvas.width = 800;
+        canvas.height = 600;
+
+        // Player settings
+        const player = {
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 60,
+            width: 50,
+            height: 50,
+            speed: 5,
+            image: new Image(),
+            movingLeft: false,
+            movingRight: false,
+        };
+        player.image.src = "nasa.png"; // Replace with spaceship image URL
+
+        // Bullet settings
+        const bullets = [];
+        const bulletSpeed = 7;
+
+        // Enemy settings
+        let enemies = [];
+        const rows = 4;
+        const cols = 8;
+        const enemyWidth = 50;
+        const enemyHeight = 50;
+        const enemyPadding = 20;
+        const enemyOffsetTop = 40;
+        const enemyOffsetLeft = 50;
+        const enemySpeed = 1;
+        let enemyDirection = 1; // 1 for right, -1 for left
+
+        // Meteorite image
+        const meteoriteImage = new Image();
+        meteoriteImage.src = "meteorite.png"; // Replace with meteorite image URL
+
+        // Game state
+        let score = 0;
+
+        function initEnemies() {
+            enemies = [];
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    enemies.push({
+                        x: enemyOffsetLeft + c * (enemyWidth + enemyPadding),
+                        y: enemyOffsetTop + r * (enemyHeight + enemyPadding),
+                        width: enemyWidth,
+                        height: enemyHeight,
+                        image: meteoriteImage,
+                    });
+                }
+            }
+        }
+
+        // Initialize enemies
+        initEnemies();
+
+        // Key listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') player.movingLeft = true;
+            if (e.key === 'ArrowRight') player.movingRight = true;
+            if (e.key === ' ') {
+                // Shoot bullet
+                bullets.push({
+                    x: player.x + player.width / 2 - 2.5,
+                    y: player.y,
+                    width: 5,
+                    height: 10,
+                    color: 'red',
+                });
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') player.movingLeft = false;
+            if (e.key === 'ArrowRight') player.movingRight = false;
+        });
+
+        restartButton.addEventListener('click', () => {
+            score = 0;
+            scoreboard.textContent = `Score: ${score}`;
+            player.x = canvas.width / 2 - 25;
+            player.y = canvas.height - 60;
+            bullets.length = 0;
+            initEnemies();
+            restartButton.style.display = 'none';
+            gameLoop();
+        });
+
+        // Game loop
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Move player
+            if (player.movingLeft && player.x > 0) player.x -= player.speed;
+            if (player.movingRight && player.x < canvas.width - player.width)
+                player.x += player.speed;
+
+            // Draw player
+            ctx.drawImage(player.image, player.x, player.y, player.width, player.height);
+
+            // Move bullets
+            bullets.forEach((bullet, index) => {
+                bullet.y -= bulletSpeed;
+                if (bullet.y + bullet.height < 0) bullets.splice(index, 1);
+            });
+
+            // Draw bullets
+            bullets.forEach((bullet) => {
+                ctx.fillStyle = bullet.color;
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+
+            // Move enemies
+            let hitEdge = false;
+            enemies.forEach((enemy) => {
+                enemy.x += enemySpeed * enemyDirection;
+                if (enemy.x + enemy.width > canvas.width || enemy.x < 0) {
+                    hitEdge = true;
+                }
+            });
+            if (hitEdge) {
+                enemyDirection *= -1;
+                enemies.forEach((enemy) => {
+                    enemy.y += 20;
+                });
+            }
+
+            // Draw enemies
+            enemies.forEach((enemy) => {
+                ctx.drawImage(enemy.image, enemy.x, enemy.y, enemy.width, enemy.height);
+            });
+
+            // Check for bullet collisions with enemies
+            bullets.forEach((bullet, bIndex) => {
+                enemies.forEach((enemy, eIndex) => {
+                    if (
+                        bullet.x < enemy.x + enemy.width &&
+                        bullet.x + bullet.width > enemy.x &&
+                        bullet.y < enemy.y + enemy.height &&
+                        bullet.y + bullet.height > enemy.y
+                    ) {
+                        // Remove bullet and enemy
+                        bullets.splice(bIndex, 1);
+                        enemies.splice(eIndex, 1);
+                        // Increment score
+                        score += 10;
+                        scoreboard.textContent = `Score: ${score}`;
+                    }
+                });
+            });
+
+            // Check for game over
+            enemies.forEach((enemy) => {
+                if (enemy.y + enemy.height > canvas.height) {
+                    alert('Game Over!');
+                    document.location.reload();
+                }
+            });
+
+            // Check for win condition
+            if (enemies.length === 0) {
+                scoreboard.textContent = `Score: ${score} - You Win!`;
+                restartButton.style.display = 'block';
+                return; // Stop the game loop
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
